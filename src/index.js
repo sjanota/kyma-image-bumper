@@ -116,37 +116,58 @@ function callGitHub(query) {
   return axios.post(githubUrl, { query }, { headers });
 }
 
-callGitHub(query)
-  .then(async (rsp) => {
-    if (!!rsp.data.errors) {
-      console.log(createRsp.data);
-    }
-    const bumps = handleMergedPRs(rsp.data);
-    const repoID = rsp.data.data.repository.id;
-    const forkOwner = rsp.data.data.viewer.login;
-    const path = await mktemp.createDir("/tmp/kyma-XXXXXX");
-    console.log(bumps, path);
-    await cmdGet(`
+async function run() {
+  const rsp = await callGitHub(query);
+  if (!!rsp.data.errors) {
+    console.log(createRsp.data);
+  }
+  const bumps = handleMergedPRs(rsp.data);
+  const repoID = rsp.data.data.repository.id;
+  const forkOwner = rsp.data.data.viewer.login;
+  const path = await mktemp.createDir("/tmp/kyma-XXXXXX");
+  console.log(bumps, path);
+  await cmdGet(`
         git clone https://github.com/kyma-project/kyma ${path}
         cd ${path}
         git remote set-url origin https://github.com/${forkOwner}/kyma
     `);
-    Object.entries(bumps).forEach(async ([component, image]) => {
-      const valuesFile = `${path}/resources/${imageNameDict[component].imageFile}`;
-      const doc = yaml.safeLoad(fs.readFileSync(valuesFile, "utf8"));
-      deepReplace(doc, imageNameDict[component].imagePropPath, image);
-      fs.writeFileSync(valuesFile, yaml.safeDump(doc));
-    });
-    await cmdGet(`
+  Object.entries(bumps).forEach(async ([component, image]) => {
+    const valuesFile = `${path}/resources/${imageNameDict[component].imageFile}`;
+    const doc = yaml.safeLoad(fs.readFileSync(valuesFile, "utf8"));
+    deepReplace(doc, imageNameDict[component].imagePropPath, image);
+    fs.writeFileSync(valuesFile, yaml.safeDump(doc));
+  });
+  await cmdGet(`
         cd ${path}
         git checkout -b bump-${today}
         git commit -a -m "Bump images"
         git push origin bump-${today}
+        cd ..
+        rm -rf ${path}
     `);
-    const query = createPR(repoID, forkOwner);
-    const createRsp = await callGitHub(query);
-    if (!!createRsp.data.errors) {
-      console.log(createRsp.data);
-    }
-  })
-  .catch((err) => console.log(err));
+  const query = createPR(repoID, forkOwner);
+  //   const createRsp = await callGitHub(query);
+  //   if (!!createRsp.data.errors) {
+  //     console.log(createRsp.data);
+  //   }
+  return query;
+}
+
+const express = require("express");
+
+const app = express();
+
+app.get("/", async (req, res) => {
+  const mutation = await run();
+  res.status(200).send(mutation).end();
+});
+
+// Start the server
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`App listening on port ${PORT}`);
+  console.log("Press Ctrl+C to quit.");
+});
+// [END gae_node_request_example]
+
+module.exports = app;
