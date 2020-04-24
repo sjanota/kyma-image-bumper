@@ -11,14 +11,14 @@ const headers = {
   authorization: `bearer ${process.env.TOKEN}`,
 };
 const githubUrl = "https://api.github.com/graphql";
-const today = new Date().toLocaleDateString();
-console.log(today);
+const today = new Date().toISOString().replace(/T.*$/, "");
+
 const query = `
 query {
     viewer {
         login
     }
-    search(type: ISSUE, first: 100, query: "repo:kyma-project/console is:pr merged:>=2020-04-23") {
+    search(type: ISSUE, first: 100, query: "repo:kyma-project/console is:pr merged:>=${today}") {
       nodes {
         ... on PullRequest {
           title
@@ -46,8 +46,8 @@ mutation {
     createPullRequest(input: {
       repositoryId: "${repoID}",
       baseRefName: "master",
-      headRefName: "${forkOwner}:bump-2020-04-23"
-      title: "Bump console images on 2020-04-23"
+      headRefName: "${forkOwner}:bump-${today}"
+      title: "Bump console images on ${today}"
     }) { 
       pullRequest {
         url
@@ -118,6 +118,9 @@ function callGitHub(query) {
 
 callGitHub(query)
   .then(async (rsp) => {
+    if (!!rsp.data.errors) {
+      console.log(createRsp.data);
+    }
     const bumps = handleMergedPRs(rsp.data);
     const repoID = rsp.data.data.repository.id;
     const forkOwner = rsp.data.data.viewer.login;
@@ -136,14 +139,14 @@ callGitHub(query)
     });
     await cmdGet(`
         cd ${path}
-        git checkout -b bump-2020-04-23
+        git checkout -b bump-${today}
         git commit -a -m "Bump images"
-        git push origin bump-2020-04-23
+        git push origin bump-${today}
     `);
     const query = createPR(repoID, forkOwner);
-    // const createRsp = await callGitHub(query);
-    // if (!!createRsp.data.errors) {
-    //   console.log(createRsp.data);
-    // }
+    const createRsp = await callGitHub(query);
+    if (!!createRsp.data.errors) {
+      console.log(createRsp.data);
+    }
   })
   .catch((err) => console.log(err));
