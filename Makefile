@@ -8,4 +8,7 @@ push-image:
 	docker push sjanota/bumper
 
 generate-app:
-	envsubst <app.ypl.yaml >app.yaml
+	envsubst <app.tpl.yaml >app.yaml
+
+deploy: generate-app
+	gcloud app deploy
