@@ -21,6 +21,7 @@ query {
       nodes {
         ... on PullRequest {
           title
+		  number
           mergeCommit {
             oid
             committedDate
@@ -43,7 +44,7 @@ query {
 
 type PRsRsp struct {
 	Errors interface{} `json:"errors"`
-	Data struct {
+	Data   struct {
 		Viewer struct {
 			Login string `json:"login"`
 			Email string `json:"email"`
@@ -54,6 +55,8 @@ type PRsRsp struct {
 		} `json:"repository"`
 		Search struct {
 			Nodes []struct {
+				Title       string `json:"title"`
+				Number      int    `json:"number"`
 				MergeCommit struct {
 					OID           string    `json:"oid"`
 					CommittedDate time.Time `json:"committedDate"`
@@ -68,25 +71,28 @@ type PRsRsp struct {
 	} `json:"data"`
 }
 
-func createPRMutation(repoID, forkOwner string) string {
+func createPRMutation(repoID, forkOwner, body string) string {
 	return fmt.Sprintf(`
 mutation { 
     createPullRequest(input: {
       repositoryId: %q,
       baseRefName: "master",
       headRefName: "%s:bump-%s"
-      title: "Bump console images on %s"
+      title: "Bump console images on %s",
+	  body: "%s"
     }) { 
       pullRequest {
         url
       }
     }
 }
-`, repoID, forkOwner, today, today)
+`, repoID, forkOwner, today, today, body)
 }
 
 func call(query string, decodeInto interface{}) error {
-	body, err := json.Marshal(&struct{ Query string `json:"query"`}{query})
+	body, err := json.Marshal(&struct {
+		Query string `json:"query"`
+	}{query})
 	if err != nil {
 		return err
 	}

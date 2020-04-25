@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -59,6 +61,14 @@ func run(w http.ResponseWriter) error {
 	}
 
 	jobs := handleMergedPRs(queryRsp)
+	if len(jobs) == 0 {
+		return nil
+	}
+
+	prBody, err := renderPRBody(queryRsp)
+	if err != nil {
+		return err
+	}
 
 	storage := memory.NewStorage()
 	fs := memfs.New()
@@ -69,14 +79,12 @@ func run(w http.ResponseWriter) error {
 		return err
 	}
 
-
-
 	remote, err := repo.CreateRemote(&config.RemoteConfig{
 		Name: "fork",
 		URLs: []string{fmt.Sprintf("https://%s@github.com/%s/kyma", token, queryRsp.Data.Viewer.Login)},
 	})
 	if err != nil {
-		return  errors.Wrap(err, "create remote")
+		return errors.Wrap(err, "create remote")
 	}
 
 	branchName := fmt.Sprintf("bump-conosle-%s", today)
@@ -88,7 +96,7 @@ func run(w http.ResponseWriter) error {
 		Remote: "fork",
 	})
 	if err != nil {
-		return  errors.Wrap(err, "create branch")
+		return errors.Wrap(err, "create branch")
 	}
 
 	wt, err := repo.Worktree()
@@ -120,17 +128,17 @@ func run(w http.ResponseWriter) error {
 			values := make(map[interface{}]interface{})
 			err = yaml.NewDecoder(f).Decode(values)
 			if err != nil {
-				return  errors.Wrapf(err, "decode %s", prop.valuesPath)
+				return errors.Wrapf(err, "decode %s", prop.valuesPath)
 			}
 
 			err = f.Truncate(0)
 			if err != nil {
-				return  errors.Wrap(err, "truncate")
+				return errors.Wrap(err, "truncate")
 			}
 
 			_, err = f.Seek(0, 0)
 			if err != nil {
-				return  errors.Wrap(err, "seek")
+				return errors.Wrap(err, "seek")
 			}
 
 			deepReplace(values, strings.Split(prop.imageProp, "."), data.OID)
@@ -163,10 +171,16 @@ func run(w http.ResponseWriter) error {
 		return errors.Wrap(err, "push")
 	}
 
-	return err
+	err = call(createPRMutation(queryRsp.Data.Repository.ID, queryRsp.Data.Viewer.Login, prBody), &struct{}{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
+
 type CommitData struct {
-	OID string
+	OID  string
 	Date time.Time
 }
 type JobsCommits map[string]CommitData
@@ -202,4 +216,18 @@ func deepReplace(doc map[interface{}]interface{}, path []string, value interface
 
 	nested := doc[path[0]]
 	deepReplace(nested.(map[interface{}]interface{}), path[1:], value)
+}
+
+func renderPRBody(data *PRsRsp) (string, error) {
+	t, err := template.ParseFiles("pr-body.gotpl")
+	if err != nil {
+		return "", err
+	}
+	buf := &bytes.Buffer{}
+	err = t.Execute(buf, data.Data.Search)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }

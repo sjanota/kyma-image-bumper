@@ -1,0 +1,6 @@
+**Description**
+
+Changes included in this Pull Request:
+{{- range .Nodes }}
+    * {{ .Title }} kyma-project/console#{{ .Number }}
+{{- end -}}
