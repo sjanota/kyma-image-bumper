@@ -1,4 +1,4 @@
 cron:
   - description: "daily mega bump job"
     url: /?secret=$SECRET
-    schedule: every day 11:00
+    schedule: every day 19:00
