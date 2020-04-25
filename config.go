@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-var today = time.Now().Add(time.Hour).Format("2006-01-02")
+var today = time.Now().Format("2006-01-02")
 var token = os.Getenv("TOKEN")
 var gitHubApiUrl = "https://api.github.com/graphql"
 
