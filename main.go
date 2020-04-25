@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
@@ -87,7 +88,7 @@ func run(w http.ResponseWriter) error {
 		return errors.Wrap(err, "create remote")
 	}
 
-	branchName := fmt.Sprintf("bump-conosle-%s", today)
+	branchName := fmt.Sprintf("bump-console-%s", today)
 	branchRef := plumbing.ReferenceName("refs/heads/" + branchName)
 
 	err = repo.CreateBranch(&config.Branch{
@@ -171,10 +172,21 @@ func run(w http.ResponseWriter) error {
 		return errors.Wrap(err, "push")
 	}
 
-	err = call(createPRMutation(queryRsp.Data.Repository.ID, queryRsp.Data.Viewer.Login, prBody), &struct{}{})
+	mutation := createPRMutation(queryRsp.Data.Repository.ID, queryRsp.Data.Viewer.Login, prBody)
+	log.Println("Create PR")
+	log.Println(mutation)
+	createRsp :=  &struct{
+		Errors interface{} `json:"errors"`
+	}{}
+	err = call(mutation,createRsp)
 	if err != nil {
 		return err
 	}
+	s, err := json.Marshal(createRsp)
+	if err != nil {
+		return err
+	}
+	log.Println(string(s))
 
 	return nil
 }

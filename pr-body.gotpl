@@ -2,5 +2,5 @@
 
 Changes included in this Pull Request:
 {{- range .Nodes }}
-    * {{ .Title }} kyma-project/console#{{ .Number }}
+    * {{ .Title }} kyma-project/console#{{ .Number }} (@{{ .Author.Login }})
 {{- end -}}

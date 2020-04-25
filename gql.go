@@ -22,6 +22,9 @@ query {
         ... on PullRequest {
           title
 		  number
+		  author {
+            login
+		  }
           mergeCommit {
             oid
             committedDate
@@ -55,8 +58,11 @@ type PRsRsp struct {
 		} `json:"repository"`
 		Search struct {
 			Nodes []struct {
-				Title       string `json:"title"`
-				Number      int    `json:"number"`
+				Title  string `json:"title"`
+				Number int    `json:"number"`
+				Author struct {
+					Login string `json:"login"`
+				} `json:"author"`
 				MergeCommit struct {
 					OID           string    `json:"oid"`
 					CommittedDate time.Time `json:"committedDate"`
@@ -77,7 +83,7 @@ mutation {
     createPullRequest(input: {
       repositoryId: %q,
       baseRefName: "master",
-      headRefName: "%s:bump-%s"
+      headRefName: "%s:bump-console-%s"
       title: "Bump console images on %s",
 	  body: "%s"
     }) { 
