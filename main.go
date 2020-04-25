@@ -35,13 +35,20 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+
+	if r.URL.Query().Get("secret") != os.Getenv("SECRET") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
 	err := run(w)
 	if err != nil {
 		log.Printf("ioio %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		return
 	}
+	
+	w.WriteHeader(http.StatusOK)
 }
 
 func run(w http.ResponseWriter) error {

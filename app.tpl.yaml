@@ -4,3 +4,4 @@ instance_class: F4
 
 env_variables:
   TOKEN: $TOKEN
+  SECRET: $SECRET
