@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func prsQuery() string {
+func prsQuery(since string) string {
 	return fmt.Sprintf(`
 query {
     viewer {
@@ -42,7 +42,7 @@ query {
         id
     }
 }
-`, today)
+`, since)
 }
 
 type PRsRsp struct {
@@ -77,7 +77,7 @@ type PRsRsp struct {
 	} `json:"data"`
 }
 
-func createPRMutation(repoID, forkOwner, body string) string {
+func createPRMutation(repoID, forkOwner, body, since string) string {
 	return fmt.Sprintf(`
 mutation { 
     createPullRequest(input: {
@@ -92,7 +92,7 @@ mutation {
       }
     }
 }
-`, repoID, forkOwner, today, today, body)
+`, repoID, forkOwner, since, since, body)
 }
 
 func call(query string, decodeInto interface{}) error {

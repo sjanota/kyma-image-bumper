@@ -44,7 +44,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := run(w)
+	err := run(r)
 	if err != nil {
 		log.Printf("ioio %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -54,9 +54,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func run(w http.ResponseWriter) error {
+func run(r *http.Request) error {
 	queryRsp := &PRsRsp{}
-	err := call(prsQuery(), queryRsp)
+	since := today
+	if s := r.URL.Query().Get("since"); s != "" {
+		since = s
+	}
+	err := call(prsQuery(since), queryRsp)
 	if err != nil {
 		return err
 	}
@@ -88,7 +92,7 @@ func run(w http.ResponseWriter) error {
 		return errors.Wrap(err, "create remote")
 	}
 
-	branchName := fmt.Sprintf("bump-console-%s", today)
+	branchName := fmt.Sprintf("bump-console-%s", since)
 	branchRef := plumbing.ReferenceName("refs/heads/" + branchName)
 
 	err = repo.CreateBranch(&config.Branch{
@@ -155,7 +159,7 @@ func run(w http.ResponseWriter) error {
 		}
 	}
 
-	_, err = wt.Commit(fmt.Sprintf("Bump console images %s", today), &git.CommitOptions{
+	_, err = wt.Commit(fmt.Sprintf("Bump console images %s", since), &git.CommitOptions{
 		All: true,
 		Author: &object.Signature{
 			Name:  queryRsp.Data.Viewer.Name,
@@ -172,7 +176,7 @@ func run(w http.ResponseWriter) error {
 		return errors.Wrap(err, "push")
 	}
 
-	mutation := createPRMutation(queryRsp.Data.Repository.ID, queryRsp.Data.Viewer.Login, prBody)
+	mutation := createPRMutation(queryRsp.Data.Repository.ID, queryRsp.Data.Viewer.Login, prBody, since)
 	log.Println("Create PR")
 	log.Println(mutation)
 	createRsp :=  &struct{
